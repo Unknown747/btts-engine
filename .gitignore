@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# Data (jangan commit CSV besar)
+data/raw/*.csv
+data/processed/*.csv
+data/features/*.csv
+data/predictions/*.csv
+data/backtest/*.csv
+data/reports/*
+
+# Keep folder structure
+!data/**/.gitkeep
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,7 @@
+league_code,league_name,country,tier,source,active_status
+D1,Bundesliga,Germany,1,football-data.co.uk,ACTIVE
+E0,Premier League,England,1,football-data.co.uk,ACTIVE
+F1,Ligue 1,France,1,football-data.co.uk,ACTIVE
+I1,Serie A,Italy,1,football-data.co.uk,ACTIVE
+N1,Eredivisie,Netherlands,1,football-data.co.uk,ACTIVE
+SP1,La Liga,Spain,1,football-data.co.uk,ACTIVE

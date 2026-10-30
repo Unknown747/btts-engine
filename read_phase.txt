@@ -1,0 +1,857 @@
+MASTER PROJECT TEMPLATE
+
+BTTS PREDICTION ENGINE V1.0
+
+TUJUAN PROJECT
+
+Bangun sebuah Football BTTS Prediction Engine menggunakan Python CLI dengan database dan seluruh penyimpanan berbasis CSV.
+
+Sistem hanya berfokus pada prediksi:
+
+1. BTTS YES
+2. BTTS NO
+
+Jangan memasukkan pasar 1X2, Over/Under, Corners, atau Team Total sebagai target prediksi utama.
+
+Sistem harus menghasilkan probabilitas BTTS YES dan BTTS NO berdasarkan data historis, statistik tim, performa home/away, H2H, dan model statistik.
+
+Prinsip utama:
+
+- Tidak boleh mengarang data.
+- Tidak boleh mengisi statistik yang tidak tersedia dengan angka buatan.
+- Semua prediksi harus bisa ditelusuri sumber datanya.
+- Tidak boleh terjadi data leakage.
+- Database wajib CSV, bukan SQLite.
+- Implementasi dilakukan bertahap berdasarkan fase.
+- Jangan mengubah data produksi atau konfigurasi project lain tanpa persetujuan.
+
+---
+
+1. JENIS MODEL
+
+Gunakan beberapa model untuk dibandingkan secara historis.
+
+A. Model Utama: Bivariate Poisson / Poisson Goals
+
+Tujuan:
+Menghitung estimasi gol tim tuan rumah dan tim tandang.
+
+Fitur:
+
+- Home attack strength
+- Away attack strength
+- Home defense strength
+- Away defense strength
+- League average goals
+- Home advantage
+- Recent scoring form
+- Recent conceding form
+- Home/away performance
+
+Probabilitas BTTS YES dihitung dari distribusi gol kedua tim.
+
+Untuk independent Poisson:
+
+P(BTTS YES) = (1 - P(Home = 0)) × (1 - P(Away = 0))
+
+P(BTTS NO) = 1 - P(BTTS YES)
+
+Bivariate Poisson dapat diuji sebagai model alternatif untuk menangkap ketergantungan jumlah gol kedua tim. Jangan mengasumsikan model ini lebih baik sebelum diuji.
+
+B. Model Pembanding: Logistic Regression
+
+Target:
+
+- 1 = BTTS YES
+- 0 = BTTS NO
+
+Fitur:
+
+- Home scoring average
+- Home conceding average
+- Away scoring average
+- Away conceding average
+- Home BTTS percentage
+- Away BTTS percentage
+- Recent BTTS percentage
+- H2H BTTS percentage
+- League BTTS average
+- Attack and defense strength
+
+Gunakan probabilitas hasil prediksi, bukan hanya klasifikasi YES/NO.
+
+C. Model Pembanding Tambahan
+
+Uji jika data mencukupi:
+
+- XGBoost
+- LightGBM
+- Random Forest
+
+Model tambahan tidak boleh otomatis menjadi model utama.
+
+D. Model Ensemble
+
+Uji kombinasi model apabila hasil backtesting menunjukkan peningkatan yang konsisten.
+
+Jangan melakukan ensemble hanya untuk meningkatkan kompleksitas sistem.
+
+E. Evaluasi Model
+
+Wajib menghitung:
+
+- Log Loss
+- Brier Score
+- ROC-AUC
+- Accuracy
+- Precision
+- Recall
+- F1-Score
+- Calibration
+- Confusion Matrix
+
+Evaluasi menggunakan chronological split dan walk-forward validation.
+
+Pisahkan hasil berdasarkan liga dan musim.
+
+---
+
+2. JALUR PREDIKSI
+
+Bangun alur prediksi berikut:
+
+STEP 1 — Upcoming Fixtures
+
+Ambil pertandingan mendatang dari sumber fixture yang tersedia.
+
+Informasi:
+
+- Match ID
+- League
+- Season
+- Match Date
+- Home Team
+- Away Team
+
+STEP 2 — Team Name Mapping
+
+Cocokkan nama kedua tim dengan database historis.
+
+STEP 3 — Historical Data Retrieval
+
+Ambil pertandingan historis kedua tim dari CSV.
+
+STEP 4 — Team Statistics
+
+Hitung statistik home/away masing-masing tim.
+
+STEP 5 — BTTS Statistics
+
+Hitung persentase BTTS YES dan NO.
+
+STEP 6 — Recent Form
+
+Analisis performa 5, 10, dan 15 pertandingan terakhir.
+
+STEP 7 — H2H Analysis
+
+Periksa pertemuan langsung kedua tim.
+
+STEP 8 — Goal Distribution
+
+Hitung:
+
+- Rata-rata gol dicetak.
+- Rata-rata gol kebobolan.
+- Persentase mencetak gol.
+- Persentase gagal mencetak gol.
+- Persentase clean sheet.
+- Persentase kebobolan minimal satu gol.
+
+STEP 9 — Model Prediction
+
+Jalankan model utama dan model pembanding.
+
+STEP 10 — Probability Calibration
+
+Periksa apakah probabilitas model sesuai dengan frekuensi kejadian aktual.
+
+STEP 11 — Final BTTS Analysis
+
+Tampilkan:
+
+- BTTS YES probability.
+- BTTS NO probability.
+- Prediksi utama.
+- Tingkat keyakinan berdasarkan kualitas data.
+- Alasan statistik.
+- Status kelengkapan data.
+
+STEP 12 — CSV Output
+
+Simpan hasil prediksi ke CSV tanpa mengubah database historis.
+
+---
+
+3. DATABASE STRUCTURE — CSV ONLY
+
+Gunakan satu struktur database yang terorganisasi.
+
+Folder utama:
+
+data/
+raw/
+processed/
+mappings/
+features/
+predictions/
+backtest/
+reports/
+
+A. matches.csv
+
+Database pertandingan historis.
+
+Kolom:
+
+- match_id
+- league_code
+- league_name
+- season
+- date
+- home_team
+- away_team
+- home_goals
+- away_goals
+- halftime_home_goals
+- halftime_away_goals
+- btts_result
+- source
+- data_status
+
+btts_result:
+
+- 1 = YES
+- 0 = NO
+
+B. teams.csv
+
+Daftar tim standar.
+
+Kolom:
+
+- team_id
+- canonical_name
+- country
+- league_code
+- active_status
+
+C. team_aliases.csv
+
+Pemetaan nama tim.
+
+Kolom:
+
+- source
+- original_name
+- canonical_name
+- team_id
+- confidence
+- mapping_status
+
+D. leagues.csv
+
+Daftar liga.
+
+Kolom:
+
+- league_code
+- league_name
+- country
+- source
+- active_status
+
+E. team_statistics.csv
+
+Statistik per tim berdasarkan periode.
+
+Kolom:
+
+- team_id
+- league_code
+- season
+- total_matches
+- home_matches
+- away_matches
+- avg_goals_scored
+- avg_goals_conceded
+- home_avg_scored
+- home_avg_conceded
+- away_avg_scored
+- away_avg_conceded
+- scoring_rate
+- conceding_rate
+- clean_sheet_rate
+- failed_to_score_rate
+
+F. btts_statistics.csv
+
+Statistik BTTS khusus masing-masing tim.
+
+Kolom:
+
+- team_id
+- league_code
+- season
+- total_matches
+- btts_yes_count
+- btts_no_count
+- btts_yes_percentage
+- btts_no_percentage
+- home_btts_percentage
+- away_btts_percentage
+- last_5_btts_percentage
+- last_10_btts_percentage
+- last_15_btts_percentage
+
+G. h2h_statistics.csv
+
+Data pertemuan langsung.
+
+Kolom:
+
+- home_team_id
+- away_team_id
+- h2h_matches
+- h2h_btts_yes
+- h2h_btts_no
+- h2h_btts_percentage
+- avg_home_goals
+- avg_away_goals
+- last_h2h_date
+
+H2H juga harus dapat dianalisis tanpa memperhatikan urutan kandang/tandang, serta dengan pemisahan home/away jika jumlah sampel mencukupi.
+
+H. match_features.csv
+
+Fitur untuk training model.
+
+Kolom:
+
+- match_id
+- home_scoring_avg
+- home_conceding_avg
+- away_scoring_avg
+- away_conceding_avg
+- home_btts_rate
+- away_btts_rate
+- home_recent_btts_rate
+- away_recent_btts_rate
+- h2h_btts_rate
+- home_clean_sheet_rate
+- away_clean_sheet_rate
+- home_failed_to_score_rate
+- away_failed_to_score_rate
+- league_btts_rate
+- home_attack_strength
+- away_attack_strength
+- home_defense_strength
+- away_defense_strength
+- btts_target
+
+I. predictions.csv
+
+Hasil prediksi.
+
+Kolom:
+
+- prediction_id
+- match_id
+- league
+- date
+- home_team
+- away_team
+- model_name
+- btts_yes_probability
+- btts_no_probability
+- prediction
+- confidence_level
+- data_quality
+- prediction_status
+
+J. backtest_results.csv
+
+Hasil pengujian historis.
+
+Kolom:
+
+- match_id
+- league
+- season
+- model_name
+- predicted_btts_yes
+- actual_btts
+- log_loss
+- brier_score
+- correct_prediction
+
+Semua CSV harus memiliki schema konsisten, validasi tipe data, pemeriksaan duplikasi, dan penanganan missing values.
+
+---
+
+4. LIGA — FOOTBALL-DATA.CO.UK
+
+Gunakan liga yang tersedia pada football-data.co.uk.
+
+Liga utama:
+
+- E0 = Premier League
+- D1 = Bundesliga
+- SP1 = La Liga
+- I1 = Serie A
+- F1 = Ligue 1
+- N1 = Eredivisie
+
+Liga tambahan yang dapat diaktifkan:
+
+- E1 = Championship
+- E2 = League One
+- E3 = League Two
+- D2 = 2. Bundesliga
+- SP2 = Segunda Division
+- I2 = Serie B
+- F2 = Ligue 2
+- SC0 = Scottish Premiership
+- SC1 = Scottish Championship
+- B1 = Belgium Pro League
+- P1 = Portugal Primeira Liga
+- T1 = Turkey
+- G1 = Greece
+
+Ketentuan:
+
+1. Liga harus diambil berdasarkan kode resmi.
+2. Periksa ketersediaan CSV setiap musim.
+3. Jangan menganggap semua liga memiliki kelengkapan statistik yang sama.
+4. Jangan menggabungkan statistik antar liga tanpa normalisasi.
+5. Simpan league_code dan season pada setiap pertandingan.
+6. Liga yang belum tervalidasi tidak boleh otomatis digunakan untuk training produksi.
+
+Prioritaskan enam liga utama terlebih dahulu.
+
+---
+
+5. TEAM NAME MAPPING
+
+Sistem wajib memiliki mekanisme pemetaan nama klub.
+
+Masalah yang harus ditangani:
+
+- Manchester United / Man United
+- Manchester City / Man City
+- Tottenham / Tottenham Hotspur
+- Nottingham Forest / Nott'm Forest
+- Paris Saint-Germain / Paris SG
+- Bayern Munich / Bayern München
+- Inter / Inter Milan
+- AC Milan / Milan
+- Atletico Madrid / Atlético Madrid
+
+Jangan hanya mengandalkan fuzzy matching.
+
+Urutan mapping:
+
+1. Exact canonical name.
+2. Exact alias.
+3. Normalisasi huruf besar/kecil.
+4. Normalisasi tanda baca dan karakter khusus.
+5. Mapping manual dari team_aliases.csv.
+6. Fuzzy matching sebagai kandidat saja.
+
+Aturan:
+
+- Jangan otomatis menerima mapping dengan tingkat keyakinan rendah.
+- Jika dua kandidat sama-sama memungkinkan, tandai NEEDS_REVIEW.
+- Jangan mencocokkan dua klub berbeda hanya karena namanya mirip.
+- Simpan hasil mapping agar tidak dihitung ulang secara tidak perlu.
+
+Fixture Mapping Validation
+
+Sebelum prediksi:
+
+- Pastikan home_team ditemukan.
+- Pastikan away_team ditemukan.
+- Pastikan team_id valid.
+- Pastikan liga sesuai.
+- Pastikan pertandingan belum selesai.
+- Pastikan data historis tersedia.
+
+Jika mapping gagal, status pertandingan menjadi MAPPING_FAILED dan prediksi tidak boleh dipaksakan.
+
+---
+
+6. ANALISIS STATISTIK WAJIB
+
+Setiap pertandingan wajib memiliki laporan statistik kedua tim.
+
+HOME TEAM
+
+Periksa:
+
+- Rata-rata gol dicetak di kandang.
+- Rata-rata gol kebobolan di kandang.
+- Persentase mencetak minimal satu gol.
+- Persentase gagal mencetak gol.
+- Persentase clean sheet.
+- Persentase kebobolan minimal satu gol.
+- Persentase BTTS kandang.
+- Form 5 pertandingan terakhir.
+- Form 10 pertandingan terakhir.
+- Form 15 pertandingan terakhir.
+
+AWAY TEAM
+
+Periksa:
+
+- Rata-rata gol dicetak saat tandang.
+- Rata-rata gol kebobolan saat tandang.
+- Persentase mencetak minimal satu gol.
+- Persentase gagal mencetak gol.
+- Persentase clean sheet.
+- Persentase kebobolan minimal satu gol.
+- Persentase BTTS tandang.
+- Form 5 pertandingan terakhir.
+- Form 10 pertandingan terakhir.
+- Form 15 pertandingan terakhir.
+
+H2H
+
+Periksa:
+
+- Total pertemuan.
+- Jumlah BTTS YES.
+- Jumlah BTTS NO.
+- Persentase BTTS.
+- Rata-rata gol kedua tim.
+- Riwayat H2H terbaru.
+- H2H home/away.
+
+H2H hanya menjadi fitur pendukung, bukan penentu tunggal.
+
+Jika jumlah pertemuan sedikit, berikan peringatan LOW_SAMPLE.
+
+LEAGUE STATISTICS
+
+Hitung:
+
+- Rata-rata BTTS liga.
+- Rata-rata gol kandang.
+- Rata-rata gol tandang.
+- Persentase clean sheet.
+- Persentase gagal mencetak gol.
+
+Gunakan statistik liga sebagai baseline untuk normalisasi kekuatan tim.
+
+---
+
+7. ODDS DAN TRAINING MODEL
+
+Ketentuan khusus:
+
+Odds tidak boleh ditampilkan pada laporan prediksi akhir.
+
+Untuk eksperimen training dan evaluasi historis, gunakan pendekatan berikut:
+
+A. Historical Odds
+
+- Simpan odds historis secara terpisah.
+- Jangan menganggap odds 1X2 sebagai odds BTTS.
+- Odds hanya boleh digunakan jika kolomnya benar-benar mewakili pasar BTTS.
+- Pisahkan opening odds dan closing odds jika tersedia.
+
+B. Simulated Odds / Probability
+
+Buat eksperimen probabilitas simulasi untuk rentang:
+
+- 1.50
+- 1.60
+- 1.70
+- 1.80
+- 1.90
+- 1.95
+
+Konversi odds desimal menjadi implied probability:
+
+P = 1 / Odds
+
+Kemudian lakukan evaluasi sensitivitas model terhadap rentang probabilitas tersebut.
+
+PENTING:
+Probabilitas simulasi bukan hasil pertandingan aktual dan tidak boleh dijadikan label training.
+
+Label training tetap harus berasal dari hasil pertandingan nyata:
+
+- BTTS YES = 1
+- BTTS NO = 0
+
+Model harus dilatih dari fitur pertandingan yang tersedia sebelum kick-off.
+
+C. Live Odds
+
+Jika ada API yang menyediakan pasar BTTS YES/NO:
+
+- Uji ketersediaan pasar.
+- Uji cakupan liga.
+- Uji cakupan pertandingan.
+- Periksa timestamp.
+- Periksa apakah harga merupakan opening atau closing.
+- Simpan sebagai data tambahan terpisah.
+- Jangan wajibkan odds untuk menjalankan prediksi.
+
+D. Output
+
+Jangan tampilkan:
+
+- Nilai odds.
+- Nama bookmaker.
+- Rekomendasi harga taruhan.
+
+Tampilkan probabilitas BTTS saja.
+
+---
+
+8. DATA QUALITY DAN ANTI-LEAKAGE
+
+Wajib diterapkan:
+
+1. Statistik pertandingan hanya boleh menggunakan pertandingan sebelum waktu kick-off.
+2. H2H tidak boleh memasukkan pertandingan yang berlangsung setelah tanggal prediksi.
+3. Form tidak boleh menggunakan hasil pertandingan masa depan.
+4. Jangan menghitung fitur dari seluruh dataset sebelum melakukan temporal split.
+5. Semua fitur harus direkonstruksi sesuai tanggal prediksi historis.
+6. Hindari data duplikat.
+7. Periksa hasil pertandingan yang belum lengkap.
+8. Jangan menganggap missing value sebagai nol.
+9. Pisahkan data training, validation, dan testing berdasarkan waktu.
+10. Simpan waktu pengambilan data dan sumbernya.
+
+Jika data tidak cukup, sistem harus mengeluarkan DATA_INSUFFICIENT.
+
+---
+
+9. SARAN TAMBAHAN
+
+Tambahkan fitur berikut jika data mencukupi:
+
+A. Recent Form Weighting
+
+Berikan bobot lebih besar pada pertandingan terbaru.
+
+Uji beberapa periode dan decay parameter melalui walk-forward validation.
+
+B. Attack vs Defense Matchup
+
+Analisis:
+
+- Kekuatan serangan home melawan pertahanan away.
+- Kekuatan serangan away melawan pertahanan home.
+
+C. Scoring Consistency
+
+Ukur konsistensi kedua tim dalam mencetak gol.
+
+D. Defensive Vulnerability
+
+Ukur frekuensi kebobolan minimal satu gol.
+
+E. Sample Size Reliability
+
+Statistik 3 pertandingan tidak boleh diperlakukan sama kuat dengan statistik 20 pertandingan.
+
+Gunakan minimum sample dan shrinkage terhadap rata-rata liga.
+
+F. League-Specific Calibration
+
+Periksa kalibrasi probabilitas per liga.
+
+G. Probability Confidence
+
+Pisahkan:
+
+- Predicted Probability = probabilitas model.
+- Confidence Level = tingkat keandalan berdasarkan sampel, kualitas data, dan kalibrasi.
+
+Jangan menyamakan confidence dengan probabilitas BTTS.
+
+H. Model Comparison
+
+Bandingkan model pada test set yang sama.
+
+Model terbaik dipilih berdasarkan performa probabilistik, bukan accuracy saja.
+
+---
+
+10. FORMAT OUTPUT PREDIKSI
+
+Contoh format:
+
+MATCH:
+Arsenal vs Liverpool
+
+LEAGUE:
+Premier League
+
+HOME TEAM STATISTICS:
+
+- Average goals scored: ...
+- Average goals conceded: ...
+- Home BTTS percentage: ...
+- Home scoring rate: ...
+- Home conceding rate: ...
+- Recent BTTS percentage: ...
+
+AWAY TEAM STATISTICS:
+
+- Average goals scored: ...
+- Average goals conceded: ...
+- Away BTTS percentage: ...
+- Away scoring rate: ...
+- Away conceding rate: ...
+- Recent BTTS percentage: ...
+
+H2H:
+
+- Total meetings: ...
+- BTTS YES: ...
+- BTTS NO: ...
+- BTTS percentage: ...
+
+MODEL RESULTS:
+
+- Poisson BTTS YES: ...%
+- Logistic Regression BTTS YES: ...%
+- Ensemble BTTS YES: ...% (jika tersedia)
+
+FINAL PREDICTION:
+
+- BTTS YES: ...%
+- BTTS NO: ...%
+- Main prediction: YES / NO
+- Confidence level: HIGH / MEDIUM / LOW
+- Data quality: GOOD / PARTIAL / INSUFFICIENT
+
+ANALYSIS:
+Jelaskan alasan statistik yang mendukung hasil model.
+
+Tidak boleh menampilkan odds.
+
+---
+
+11. IMPLEMENTATION PHASES
+
+Jangan membuat seluruh sistem sekaligus.
+
+PHASE 1 — Project Audit & Data Source
+
+- Audit struktur project.
+- Verifikasi sumber data.
+- Tentukan liga dan musim.
+- Periksa kelengkapan CSV.
+
+PHASE 2 — CSV Database
+
+- Buat schema.
+- Validasi kolom.
+- Normalisasi data.
+- Hilangkan duplikasi.
+
+PHASE 3 — Team Mapping
+
+- Bangun canonical team database.
+- Bangun alias mapping.
+- Uji fixture matching.
+
+PHASE 4 — BTTS Historical Analysis
+
+- Hitung target BTTS.
+- Hitung statistik tim.
+- Hitung home/away.
+- Hitung H2H.
+- Hitung statistik liga.
+
+PHASE 5 — Feature Engineering
+
+- Buat fitur training.
+- Terapkan time-based feature generation.
+- Audit leakage.
+
+PHASE 6 — Model Development
+
+- Poisson.
+- Logistic Regression.
+- Model pembanding.
+
+PHASE 7 — Backtesting
+
+- Walk-forward validation.
+- Log Loss.
+- Brier Score.
+- Calibration.
+- Perbandingan antar liga.
+
+PHASE 8 — Model Selection
+
+- Pilih model terbaik.
+- Audit stabilitas.
+- Jangan promosi model jika belum terbukti.
+
+PHASE 9 — Upcoming Match Prediction
+
+- Ambil fixture.
+- Mapping tim.
+- Ambil statistik.
+- Jalankan model.
+
+PHASE 10 — Final Report & Production Validation
+
+- Output prediksi CSV.
+- Validasi hasil.
+- Audit deterministik.
+- Pastikan tidak ada perubahan database yang tidak disengaja.
+
+---
+
+12. ATURAN KERJA AI PROGRAMMER
+
+Sebelum memulai:
+
+1. Audit project dan seluruh file yang sudah ada.
+2. Jangan langsung membuat kode.
+3. Berikan laporan kondisi project.
+4. Buat rencana implementasi setiap fase.
+5. Tunggu persetujuan untuk memulai implementasi.
+
+Saat implementasi:
+
+- Kerjakan satu fase sampai selesai.
+- Jalankan pengujian.
+- Berikan bukti hasil pengujian.
+- Jangan menyatakan PASS tanpa bukti.
+- Jangan mengubah file di luar cakupan fase.
+- Jangan menghapus database historis.
+- Jangan membuat SQLite.
+- Pertahankan seluruh data dalam CSV.
+- Gunakan backup sebelum perubahan yang berisiko.
+
+Setiap fase wajib memiliki:
+
+- Tujuan.
+- File yang dibuat/diubah.
+- Pengujian.
+- Hasil aktual.
+- Status PASS / FAIL / BLOCKED.
+- Rekomendasi fase berikutnya.
+
+TARGET AKHIR:
+
+Membangun BTTS Prediction Engine yang dapat membaca pertandingan mendatang, mencocokkan identitas klub, menganalisis statistik home/away dan H2H, menjalankan beberapa model, serta menghasilkan probabilitas BTTS YES/NO yang telah diuji secara historis.
